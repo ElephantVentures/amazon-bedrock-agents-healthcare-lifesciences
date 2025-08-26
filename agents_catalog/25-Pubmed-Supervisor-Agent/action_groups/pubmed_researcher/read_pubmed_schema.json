@@ -1,0 +1,55 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PubMed Article Reader API",
+    "version": "1.0.0",
+    "description": "API for reading full-text articles from PMC Open Access Subset"
+  },
+  "paths": {
+    "/read_pubmed": {
+      "post": {
+        "summary": "Retrieve full text of PMC article from S3",
+        "description": "Retrieves full-text content from PMC Open Access Subset with automatic summarization for research analysis",
+        "operationId": "read_pubmed",
+        "parameters": [
+          {
+            "name": "pmcid",
+            "in": "query",
+            "description": "PMC identifier (e.g., 'PMC6033041')",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "description": "Optional DOI URL to include in the response for citation purposes",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Article retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "answer": {
+                      "type": "string",
+                      "description": "Summarized article content or status message"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

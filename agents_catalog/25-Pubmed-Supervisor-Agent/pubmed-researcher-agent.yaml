@@ -1,0 +1,241 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'PubMed Researcher Agent with Lambda action groups for searching and reading PubMed articles'
+
+Parameters:
+  BedrockModelId:
+    Type: String
+    Description: The ID of the Foundation Model to use for the Agent
+    Default: amazon.nova-pro-v1:0
+  AgentIAMRoleArn:
+    Type: String
+    Description: IAM Role ARN for the Bedrock Agent (optional - will create if not provided)
+    Default: ""
+  LayersBucketName:
+    Type: String
+    Description: S3 bucket name for Lambda layers and deployment artifacts
+  NCBIAPIKey:
+    Type: String
+    Description: NCBI API key for enhanced rate limits (optional)
+    Default: ""
+    NoEcho: true
+
+Conditions:
+  CreateAgentRole: !Equals [!Ref AgentIAMRoleArn, ""]
+  HasNCBIAPIKey: !Not [!Equals [!Ref NCBIAPIKey, ""]]
+
+Resources:
+  # IAM Role for Bedrock Agent (created if not provided)
+  BedrockAgentRole:
+    Type: AWS::IAM::Role
+    Condition: CreateAgentRole
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+      Policies:
+        - PolicyName: InvokeLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt ReadPubmedFunction.Arn
+                  - !GetAtt SearchPubmedFunction.Arn
+
+  # IAM Role for Lambda functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock-runtime:InvokeModel
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: 'arn:aws:s3:::pmc-oa-opendata/*'
+
+  # Lambda Layer for dependencies
+  PythonDependenciesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: pubmed-agent-dependencies
+      Description: Python dependencies for PubMed agent functions
+      Content:
+        S3Bucket: !Ref LayersBucketName
+        S3Key: layers/pubmed-dependencies.zip
+      CompatibleRuntimes:
+        - python3.11
+        - python3.12
+
+  # Lambda function for reading PubMed articles
+  ReadPubmedFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-read-pubmed'
+      Runtime: python3.12
+      Handler: read_pubmed.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 900  # 15 minutes for content summarization
+      MemorySize: 1024
+      Environment:
+        Variables:
+          NCBI_API_KEY: !If [HasNCBIAPIKey, !Ref NCBIAPIKey, !Ref "AWS::NoValue"]
+      Layers:
+        - !Ref PythonDependenciesLayer
+      Code:
+        ZipFile: |
+          # Placeholder - will be replaced by deployment script
+          def lambda_handler(event, context):
+              return {'statusCode': 500, 'body': 'Function not deployed'}
+
+  # Lambda function for searching PubMed
+  SearchPubmedFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-search-pubmed'
+      Runtime: python3.12
+      Handler: search_pubmed.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300  # 5 minutes for search operations
+      MemorySize: 512
+      Environment:
+        Variables:
+          NCBI_API_KEY: !If [HasNCBIAPIKey, !Ref NCBIAPIKey, !Ref "AWS::NoValue"]
+      Layers:
+        - !Ref PythonDependenciesLayer
+      Code:
+        ZipFile: |
+          # Placeholder - will be replaced by deployment script
+          def lambda_handler(event, context):
+              return {'statusCode': 500, 'body': 'Function not deployed'}
+
+  # PubMed Researcher Agent
+  PubmedResearcherAgent:
+    Type: AWS::Bedrock::Agent
+    Properties:
+      AgentName: !Sub '${AWS::StackName}-pubmed-researcher'
+      Description: 'Specialized agent for searching and retrieving PubMed articles with citation analysis'
+      FoundationModel: !Ref BedrockModelId
+      AgentResourceRoleArn: !If 
+        - CreateAgentRole
+        - !GetAtt BedrockAgentRole.Arn
+        - !Ref AgentIAMRoleArn
+      Instruction: |
+        You are the PubMed Researcher Agent, specialized in searching and retrieving scientific literature from PubMed. 
+        
+        Your capabilities include:
+        1. Searching PubMed using optimized queries with citation-based ranking
+        2. Retrieving full-text articles from PMC Open Access Subset
+        3. Providing properly formatted scientific literature results
+        
+        Key guidelines:
+        - Always use rerank="referenced_by" in searches to prioritize influential papers
+        - Focus on high-quality, well-cited research articles
+        - Provide comprehensive abstracts and metadata for each article
+        - Handle licensing restrictions appropriately
+        - Return results in a structured, citation-ready format
+        
+        When searching:
+        - Use max_results between 200-500 for comprehensive coverage
+        - Limit final results to 20-50 articles using max_records
+        - Include temporal filters when appropriate (e.g., "last 5 years"[dp])
+        - Apply appropriate study type filters
+        
+        When reading articles:
+        - Provide summarized content that preserves key scientific findings
+        - Include proper citation information
+        - Handle both commercial and non-commercial licenses appropriately
+      ActionGroups:
+        - ActionGroupName: SearchPubmed
+          Description: 'Search PubMed for articles with citation analysis'
+          ActionGroupExecutor:
+            Lambda: !GetAtt SearchPubmedFunction.Arn
+          ApiSchema:
+            S3:
+              S3BucketName: !Ref LayersBucketName
+              S3ObjectKey: schemas/search_pubmed_schema.json
+          ActionGroupState: ENABLED
+        - ActionGroupName: ReadPubmed
+          Description: 'Read full-text articles from PMC Open Access Subset'
+          ActionGroupExecutor:
+            Lambda: !GetAtt ReadPubmedFunction.Arn
+          ApiSchema:
+            S3:
+              S3BucketName: !Ref LayersBucketName
+              S3ObjectKey: schemas/read_pubmed_schema.json
+          ActionGroupState: ENABLED
+
+  # Lambda permissions for Bedrock Agent
+  ReadPubmedInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ReadPubmedFunction
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent/${PubmedResearcherAgent}'
+
+  SearchPubmedInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SearchPubmedFunction
+      Action: lambda:InvokeFunction
+      Principal: bedrock.amazonaws.com
+      SourceArn: !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent/${PubmedResearcherAgent}'
+
+  # Agent Alias for deployment
+  PubmedResearcherAgentAlias:
+    Type: AWS::Bedrock::AgentAlias
+    Properties:
+      AgentId: !Ref PubmedResearcherAgent
+      AgentAliasName: 'ACTIVE'
+      Description: 'Active alias for PubMed Researcher Agent'
+
+Outputs:
+  PubmedResearcherAgentId:
+    Description: 'ID of the PubMed Researcher Agent'
+    Value: !Ref PubmedResearcherAgent
+    Export:
+      Name: !Sub '${AWS::StackName}-AgentId'
+
+  PubmedResearcherAgentArn:
+    Description: 'ARN of the PubMed Researcher Agent'
+    Value: !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent/${PubmedResearcherAgent}'
+    Export:
+      Name: !Sub '${AWS::StackName}-AgentArn'
+
+  PubmedResearcherAgentAliasArn:
+    Description: 'ARN of the PubMed Researcher Agent Alias'
+    Value: !GetAtt PubmedResearcherAgentAlias.AgentAliasArn
+    Export:
+      Name: !Sub '${AWS::StackName}-AgentAliasArn'
+
+  ReadPubmedFunctionArn:
+    Description: 'ARN of the Read PubMed Lambda function'
+    Value: !GetAtt ReadPubmedFunction.Arn
+
+  SearchPubmedFunctionArn:
+    Description: 'ARN of the Search PubMed Lambda function'
+    Value: !GetAtt SearchPubmedFunction.Arn

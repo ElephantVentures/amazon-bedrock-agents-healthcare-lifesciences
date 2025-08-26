@@ -1,0 +1,73 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PubMed Search API",
+    "version": "1.0.0",
+    "description": "API for searching PubMed articles with citation analysis and ranking capabilities"
+  },
+  "paths": {
+    "/search_pubmed": {
+      "post": {
+        "summary": "Search PubMed for articles matching the query",
+        "description": "Performs comprehensive search of PubMed literature with optional citation analysis and ranking capabilities",
+        "operationId": "search_pubmed",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "The search query for PubMed using standard PubMed search syntax",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "max_results",
+            "in": "query",
+            "description": "Maximum number of results to fetch from initial search",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "max_records",
+            "in": "query",
+            "description": "Maximum number of articles to return in final results",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "rerank",
+            "in": "query",
+            "description": "Reranking method to apply",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "answer": {
+                      "type": "string",
+                      "description": "Formatted search results with article details, citation counts, and summary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

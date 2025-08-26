@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  pubmed-deployment:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
+    container_name: pubmed-agent-deployment
+    environment:
+      # Required environment variables
+      - BUCKET_NAME=${BUCKET_NAME}
+      - REGION=${REGION:-us-east-2}
+      - ENVIRONMENT_NAME=${ENVIRONMENT_NAME:-prod}
+      
+      # Optional environment variables
+      - BEDROCK_AGENT_SERVICE_ROLE_ARN=${BEDROCK_AGENT_SERVICE_ROLE_ARN:-}
+      - NCBI_API_KEY=${NCBI_API_KEY:-}
+      
+      # AWS Configuration
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      - AWS_DEFAULT_REGION=${REGION:-us-east-2}
+      - AWS_REGION=${REGION:-us-east-2}
+      
+      # AWS CLI Configuration
+      - AWS_PAGER=""
+      - AWS_CLI_AUTO_PROMPT=off
+      
+      # Python Configuration
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    
+    volumes:
+      # Mount AWS credentials if using credential files
+      - ${HOME}/.aws:/home/deploy/.aws:ro
+      
+      # Mount current directory for development (optional)
+      - .:/workspace
+      
+      # Mount Docker socket for potential container operations
+      # - /var/run/docker.sock:/var/run/docker.sock
+    
+    networks:
+      - pubmed-network
+    
+    # Override default command for different operations
+    # Uncomment and modify as needed:
+    # command: ["./deploy.sh"]
+    
+    # For interactive debugging:
+    # command: ["bash"]
+    # stdin_open: true
+    # tty: true
+
+  # Optional: Validation service to check deployment
+  pubmed-validator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    platform: linux/amd64
+    container_name: pubmed-agent-validator
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      - AWS_DEFAULT_REGION=${REGION:-us-east-2}
+      - REGION=${REGION:-us-east-2}
+      - ENVIRONMENT_NAME=${ENVIRONMENT_NAME:-prod}
+    
+    volumes:
+      - ${HOME}/.aws:/home/deploy/.aws:ro
+      - .:/workspace
+    
+    networks:
+      - pubmed-network
+    
+    # Validation script
+    command: ["bash", "-c", "echo 'Validating deployment...' && aws sts get-caller-identity && echo 'AWS credentials validated successfully'"]
+    
+    # Only run validator when explicitly requested
+    profiles:
+      - validation
+
+networks:
+  pubmed-network:
+    driver: bridge
