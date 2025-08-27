@@ -251,8 +251,8 @@ def _download_from_s3(bucket: str, key: str) -> str:
 
         s3_client = boto3.client(
             "s3",
-            # Use us-east-1 region for PMC Open Access bucket
-            region_name="us-east-1",
+            # Use us-east-2 region for PMC Open Access bucket
+            region_name="us-east-2",
             # Configure for anonymous access
             config=Config(signature_version=UNSIGNED),
         )
@@ -786,7 +786,7 @@ def read_pubmed(pmcid: str, source: str = None) -> dict:
             from botocore.config import Config
 
             s3_client = boto3.client(
-                "s3", region_name="us-east-1", config=Config(signature_version=UNSIGNED)
+                "s3", region_name="us-east-2", config=Config(signature_version=UNSIGNED)
             )
 
             # Use head_object to check existence without downloading content
