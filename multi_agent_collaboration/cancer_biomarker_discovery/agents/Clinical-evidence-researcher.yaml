@@ -202,7 +202,7 @@ Resources:
             Action:
             - bedrock:InvokeModel
             Resource: 
-              - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v1'
+              - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0'
               - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0'
             Sid: BedrockInvokeModelStatement
       - PolicyName: OSSPolicy
@@ -378,7 +378,7 @@ Resources:
                               "properties": {
                                   "bedrock-knowledge-base-default-vector": {
                                       "type": "knn_vector",
-                                      "dimension": 1536,
+                                      "dimension": 1024,
                                       "method": {
                                           "name": "hnsw",
                                           "engine": "faiss",
@@ -507,7 +507,7 @@ Resources:
       KnowledgeBaseConfiguration:
         Type: VECTOR
         VectorKnowledgeBaseConfiguration:
-          EmbeddingModelArn: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v1'
+          EmbeddingModelArn: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0'
       RoleArn: !GetAtt BedrockKBExecutionRole.Arn
       StorageConfiguration:
         Type: OPENSEARCH_SERVERLESS

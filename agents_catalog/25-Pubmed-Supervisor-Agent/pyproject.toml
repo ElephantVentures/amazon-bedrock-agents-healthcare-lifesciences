@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supervisor-agent"
+version = "1.0.0"
+description = "PubMed Supervisor Agent with multi-agent coordination"
+authors = [
+    {name = "Healthcare AI Team"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aws-cdk-lib>=2.0.0",
+    "constructs>=10.0.0",
+    "httpx",
+    "boto3",
+    "defusedxml",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "flake8"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["supervisor_agent*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']

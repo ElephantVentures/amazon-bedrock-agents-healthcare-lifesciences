@@ -49,7 +49,7 @@ class ResearchAgentStack(Stack):
             timeout=Duration.seconds(900),
             memory_size=512,
             layers=[dependencies_layer],
-            architecture=_lambda.Architecture.ARM_64,
+            architecture=_lambda.Architecture.ARM_64
         )
 
         # Add permissions for the Lambda function to invoke Bedrock APIs

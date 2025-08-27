@@ -20,7 +20,7 @@ class SemanticSearch:
     
     def __init__(
         self, 
-        model_id: str = "amazon.titan-embed-text-v1",
+        model_id: str = "amazon.titan-embed-text-v2:0",
         region_name: Optional[str] = None,
         profile_name: Optional[str] = None,
     ):

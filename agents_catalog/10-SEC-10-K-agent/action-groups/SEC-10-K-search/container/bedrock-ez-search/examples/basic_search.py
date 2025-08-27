@@ -7,7 +7,7 @@ from bedrock_ez_search import SemanticSearch
 def main():
     # Initialize the search engine
     search = SemanticSearch(
-        model_id="amazon.titan-embed-text-v1",  # Default model
+        model_id="amazon.titan-embed-text-v2:0",  # Default model
         region_name="us-east-1",  # Optional, change to your region
         profile_name="default"    # Optional, change to your profile
     )
